@@ -19,7 +19,7 @@ private:
     T* ptr = nullptr;
     ControlBlock<T>* cb = nullptr;
 
-    void release() {
+    void release() noexcept{
         if (cb) {
             if (--cb->shared_count == 0) {
                 cb->deleter(ptr);
@@ -41,17 +41,31 @@ public:
         : ptr(other.ptr), cb(other.cb) {
         if (cb) cb->shared_count++;
     }
+    //move constructor
+    SharedPtr(SharedPtr&& other) noexcept //mark noexcept; otherwise, it falls back to copy constructor 
+    : ptr(other.ptr), cb(other.cb) {
+    other.ptr = nullptr;
+    other.cb = nullptr;
+    }
 
     ~SharedPtr() {
         release();
     }
-
+    //copy assignment
     SharedPtr& operator=(const SharedPtr& other) {
+        SharedPtr temp(other);   
+        swap(temp);              
+        return *this;          
+    }
+
+    //move assignment
+    SharedPtr& operator=(SharedPtr&& other) noexcept {
         if (this != &other) {
-            release();
+            release();           //won't throw
             ptr = other.ptr;
             cb = other.cb;
-            if (cb) cb->shared_count++;
+            other.ptr = nullptr;
+            other.cb = nullptr;
         }
         return *this;
     }
