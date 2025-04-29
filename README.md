@@ -2,9 +2,6 @@
 
 This is a custom implementation of a `SharedPtr` (a smart pointer) that manages the lifetime of dynamically allocated objects through reference counting. It allows for automatic memory management by ensuring the object is deleted when the last shared pointer to it is destroyed or reset.
 
-## Files
-
-- `shared_ptr.hpp` (contains the implementation)
 
 ## Overview
 
