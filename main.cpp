@@ -1,85 +1,108 @@
-
-#include <memory>
+#include <functional>
 #include <iostream>
 
 template <typename T>
-struct ControlBlock{
-    int shared_ptr;
-    int weak_ptr;
+struct ControlBlock {
+    int shared_count;
+    int weak_count;
     T* ptr;
-    std::function<void(T*)> deleter;  
+    std::function<void(T*)> deleter;
 
-    template <typename Deleter = std::default_delete<T>> // std::default_delete<T> is a class/functor object
-    ControlBlock(int s,int w, T* p, Deleter d)  // storing it safely requires std::function.
-    :   shared_ptr(s),
-        weak_ptr(w),
-        ptr(p){
-            deleter  = [d](T* obj) { d(obj);};
-    }
-
+    template <typename Deleter = std::default_delete<T>>
+    ControlBlock(T* p, Deleter d = Deleter())
+        : shared_count(1), weak_count(0), ptr(p), deleter([d](T* obj) { d(obj); }) {}
 };
 
 template <typename T>
-class SharedPtr{
-    T* ptr;
-    ControlBlock<T>* cb;
+class SharedPtr {
+private:
+    T* ptr = nullptr;
+    ControlBlock<T>* cb = nullptr;
+
+    void release() {
+        if (cb) {
+            if (--cb->shared_count == 0) {
+                cb->deleter(ptr);
+                if (cb->weak_count == 0)
+                    delete cb;
+            }
+        }
+        ptr = nullptr;
+        cb = nullptr;
+    }
+
 public:
-    SharedPtr(T* p){
-        ptr = p;
-        cb = new ControlBlock(1,0,ptr);
+    SharedPtr() = default;
 
-    }
+    explicit SharedPtr(T* p)
+        : ptr(p), cb(new ControlBlock<T>(p)) {}
 
-    SharedPtr(const SharedPtr& other) {
-        ptr = other.ptr;
-        cb = other.cb;
-        cb->shared_ptr++;
+    SharedPtr(const SharedPtr& other)
+        : ptr(other.ptr), cb(other.cb) {
+        if (cb) cb->shared_count++;
     }
 
-    void swap(SharedPtr& other){
-        std::swap(ptr,other.ptr);
-        std::swap(cb,other.cb);
-
-    }
-    T* get(){
-        return ptr;
-    }
-    SharedPtr& operator=(const SharedPtr& other){
-        ptr = other.ptr;
-        cb = other.cb;
-    }
-    template <typename T>
-    T& operator->() const{
-        return ptr;
-    }
-    template <typename T>
-    T& operator[](int i){
-        return *(ptr + i);
-    }
-
-    int use_count(){
-        return cb->shared_ptr;
-    }
-
-    void lreset(){
-        this.cb->shared_ptr = 0;
-        this.cb->weak_ptr   = 0;
-        this.cb->ptr = nullptr;
-        this.cb->deleter = delete;
-    }
-    T& operator*() const {
-        return *ptr;  
-    }
-    bool unique() const{
-        return cb->shared_ptr == 1;
-    }
     ~SharedPtr() {
-        cb->shared_ptr--;
-        if (cb->shared_ptr == 0) {
-            cb->deleter(ptr);  
-            if (cb->weak_ptr == 0)
-                delete cb;  
+        release();
+    }
+
+    SharedPtr& operator=(const SharedPtr& other) {
+        if (this != &other) {
+            release();
+            ptr = other.ptr;
+            cb = other.cb;
+            if (cb) cb->shared_count++;
+        }
+        return *this;
+    }
+
+    void reset(T* p = nullptr) {
+        release();
+        if (p) {
+            ptr = p;
+            cb = new ControlBlock<T>(p);
         }
     }
 
+    void swap(SharedPtr& other) {
+        std::swap(ptr, other.ptr);
+        std::swap(cb, other.cb);
+    }
+
+    T* get() const {
+        return ptr;
+    }
+
+    T& operator*() const {
+        return *ptr;
+    }
+
+    T* operator->() const {
+        return ptr;
+    }
+
+    T& operator[](int i) const {
+        return ptr[i];
+    }
+
+    int use_count() const {
+        return cb ? cb->shared_count : 0;
+    }
+
+    bool unique() const {
+        return use_count() == 1;
+    }
 };
+
+
+int main() {
+    SharedPtr<int> p1(new int[5]{10, 20, 30, 40, 50});
+    std::cout << "p1[2]: " << p1[2] << "\n";
+    std::cout << "use_count: " << p1.use_count() << "\n";
+
+    SharedPtr<int> p2 = p1;
+    std::cout << "After copy, use_count: " << p1.use_count() << "\n";
+
+    p2.reset();
+    std::cout << "After reset p2, p1.use_count(): " << p1.use_count() << "\n";
+}
