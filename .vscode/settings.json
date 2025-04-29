@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "charconv": "cpp",
-        "xmemory": "cpp"
+        "xmemory": "cpp",
+        "memory": "cpp"
     }
 }

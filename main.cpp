@@ -34,8 +34,8 @@ private:
 public:
     SharedPtr() = default;
 
-    explicit SharedPtr(T* p)
-        : ptr(p), cb(new ControlBlock<T>(p)) {}
+    explicit SharedPtr(T* p, std::function<void(T*)> deleter = std::default_delete<T>()) //explisit in case it gets assigned to a T*
+        : ptr(p), cb(new ControlBlock<T>(p, deleter)) {}
 
     SharedPtr(const SharedPtr& other)
         : ptr(other.ptr), cb(other.cb) {
@@ -110,13 +110,47 @@ public:
 
 
 int main() {
-    SharedPtr<int> p1(new int[5]{10, 20, 30, 40, 50});
-    std::cout << "p1[2]: " << p1[2] << "\n";
-    std::cout << "use_count: " << p1.use_count() << "\n";
+    SharedPtr<int> p1 = new int(42);
+    std::cout << "*p1: " << *p1 << "\n";
+    std::cout << "use_count: " << p1.use_count() << "\n\n";
 
+    // Copy constructor
     SharedPtr<int> p2 = p1;
-    std::cout << "After copy, use_count: " << p1.use_count() << "\n";
+    std::cout << "After copy, p1.use_count: " << p1.use_count() << "\n";
+    std::cout << "p2.use_count: " << p2.use_count() << "\n\n";
+
+    // Move constructor
+    SharedPtr<int> p3 = std::move(p2);
+    std::cout << "After move, p3.use_count: " << p3.use_count() << "\n";
+    std::cout << "p2.use_count (should be 0): " << p2.use_count() << "\n\n";
+
+    // Copy assignment
+    SharedPtr<int> p4;
+    p4 = p3;
+    std::cout << "After copy assignment, p4.use_count: " << p4.use_count() << "\n\n";
+
+    // Move assignment
+    SharedPtr<int> p5;
+    p5 = std::move(p4);
+    std::cout << "After move assignment, p5.use_count: " << p5.use_count() << "\n";
+    std::cout << "p4.use_count (should be 0): " << p4.use_count() << "\n\n";
+
+    // Reset
+    p5.reset(new int(99));
+    std::cout << "After reset, *p5: " << *p5 << ", use_count: " << p5.use_count() << "\n\n";
+
+    // Swap
+    SharedPtr<int> p6(new int(77));
+    std::cout << "Before swap: *p5 = " << *p5 << ", *p6 = " << *p6 << "\n";
+    p5.swap(p6);
+    std::cout << "After swap: *p5 = " << *p5 << ", *p6 = " << *p6 << "\n";
+
+    SharedPtr<int> p7(new int[5]{10, 20, 30, 40, 50}, [](int* p) { delete[] p; }); //use cutum deleter
+    std::cout << "p7[2]: " << p7[2] << "\n";
+    std::cout << "use_count: " << p7.use_count() << "\n";
+
+    SharedPtr<int> p8 = p7;
+    std::cout << "After copy, use_count: " << p7.use_count() << "\n";
 
     p2.reset();
-    std::cout << "After reset p2, p1.use_count(): " << p1.use_count() << "\n";
 }
