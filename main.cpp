@@ -110,7 +110,7 @@ public:
 
 
 int main() {
-    SharedPtr<int> p1 = new int(42);
+    SharedPtr<int> p1(new int(42));
     std::cout << "*p1: " << *p1 << "\n";
     std::cout << "use_count: " << p1.use_count() << "\n\n";
 
